@@ -2,6 +2,7 @@ import xarray as xr
 import numpy as np
 from dask.distributed import Client
 import os
+import functions as f
 
 #datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
 datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
@@ -27,42 +28,6 @@ timechunk = 30
 
 data_vars = ["uvel", "vvel", "dz", "pbot", "sealv", "ubaro", "uflx", "vflx"]
 
-# functions for moving variables from face to center of cells
-def xface2center(da):
-    ni = len(da.x)
-
-    dac = xr.concat([da.isel(x=slice(0,ni-1)), da.isel(x=slice(1,ni))], dim="temp").mean(dim="temp")
-    dacend = xr.concat([da.isel(x=0), da.isel(x=-1)], dim="temp").mean(dim="temp")
-    dac = xr.concat([dac, dacend], dim="x")
-
-    return dac
-
-def yface2center(da):
-    nj = len(da.y)
-
-    dac = xr.concat([da.isel(y=slice(0,nj-1)), da.isel(y=slice(1,nj))], dim="temp").mean(dim="temp")
-    dacend = da.isel(y=-1)*np.nan
-    dac = xr.concat([dac, dacend], dim="y")
-
-    return dac
-
-def center2xface(da):
-    ni = len(da.x)
-
-    dax = xr.concat([da.isel(x=slice(0,ni-1)), da.isel(x=slice(1,ni))], dim="temp").mean(dim="temp")
-    daxfirst = xr.concat([da.isel(x=0), da.isel(x=-1)], dim="temp").mean(dim="temp")
-    dax = xr.concat([daxfirst, dax], dim="x")
-
-    return dax
-
-def center2yface(da):
-    nj = len(da.y)
-
-    day = xr.concat([da.isel(y=slice(0,nj-1)), da.isel(y=slice(1,nj))], dim="temp").mean(dim="temp")
-    dayfirst = da.isel(y=0)*np.nan
-    day = xr.concat([dayfirst, day], dim="y")
-
-    return day
 
 # read daily data 
 ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc", 
@@ -75,12 +40,11 @@ ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc",
 pds = xr.Dataset()
 
 
-### shift u and v to cell center
 u = ds.uvel
 v = ds.vvel
 
-uc = xface2center(u)
-vc = yface2center(v)
+uc = f.xface2center(u)
+vc = f.yface2center(v)
 
 # store values 
 ds["uc"] = uc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
@@ -89,27 +53,25 @@ ds["vc"] = vc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechun
 
 
 # calculate momentum advection
-ds["uv"] = ds.uc*ds.vc
+ds["uv"] = f.momentumAdvection(u,v)
 
 
 # calculate depth integral of momentum advection and u velocity
-dz = ds.dz
-dzx = center2xface(ds.dz)
-dzy = center2yface(ds.dz)
-pds["UV"] = (ds.uv*dz).sum("sigma")
-pds["U1"] = (uc*dz).sum("sigma")
-pds["U2"] = (u*dzx).sum("sigma")
+pds["UV"] = f.centerDepthIntegral(ds.uv, ds.dz)
+pds["U1"] = f.centerDepthIntegral(ds.uc, ds.dz)
+pds["U2"] = f.xfaceDepthIntegral(ds.u, ds.dz)
 
 # calculate time derivative of velocity, second order difference
-dUdt1 = pds.U1.differentiate("time", datetime_unit="s")
-dUdt2 = pds.U2.differentiate("time", datetime_unit="s")
+dUdt1 = f.timeDerivative(pds.U1)
+dUdt2 = f.timeDerivative(pds.U2)
 
 pds["dUdt1"] = dUdt1
 pds["dUdt2"] = xface2center(dUdt2)
 
+
 # advection of planetary vorticity
-pds["fV1"] = f0*(vc*dz).sum("sigma")
-pds["fV2"] = yface2center(f0*(v*dzy).sum("sigma"))
+pds["fV1"] = f.centerDepthIntegral(f0*vc, dz) 
+pds["fV2"] = yface2center(f.yfaceDepthIntegral(f0*v,dz))
 
 
 # calculate depth H. Total water height - sea surface elevation

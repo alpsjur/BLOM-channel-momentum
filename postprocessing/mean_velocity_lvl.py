@@ -1,6 +1,7 @@
 import xarray as xr
 import numpy as np
 import dask
+import functions as f
 
 datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
@@ -30,24 +31,15 @@ ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc",
                       ).sel(depth=slice(0, 2300))
 pp = xr.Dataset()
 
-# shift u and v to cell center
-ni = len(ds.x)
-nj = len(ds.y)
-
 u = ds.uvellvl
 v = ds.vvellvl
 
-uc = xr.concat([u.isel(x=slice(0,ni-1)), u.isel(x=slice(1,ni))], dim="temp").mean(dim="temp")
-ucend = xr.concat([u.isel(x=0), u.isel(x=-1)], dim="temp").mean(dim="temp")
-uc = xr.concat([uc, ucend], dim="x")
-pp["uc"] = uc#.chunk({"x":-1, "y":-1, "sigma":-1, "time":10})
+uc = f.xface2center(u)
+pp["uc"] = uc
 pp.uc.attrs = {"long_name" : "Horizontal x-velocity at grid center", "units" : "m s-1"}
 
-vc = xr.concat([v.isel(y=slice(0,nj-1)), v.isel(y=slice(1,nj))], dim="temp").mean(dim="temp")
-vcend = v.isel(y=-1)*np.nan
-vc = xr.concat([vc, vcend], dim="y")
-
-pp["vc"] = vc.chunk({"x":xchunk, "y":ychunk, "depth":depthchunk, "time":timechunk})
+vc = f.yface2center(v)
+pp["vc"] = vc
 pp.vc.attrs = {"long_name" : "Horizontal y-velocity at grid center", "units" : "m s-1"}
 
 # spesify coordinate values, usefull for differentiating
@@ -87,6 +79,7 @@ pp["wc2"] = wc2
 pp.wc2.attrs = {"long_name" : "Vertical velocity calculated from vertical mass flux", "units" : "m s-1"}
 
 pp["eta"] = ds.sealv
+
 
 mean = pp.mean("time")
 mean.eta.attrs = {"long_name" : "Time-mean sea level", "units" : "m"}
