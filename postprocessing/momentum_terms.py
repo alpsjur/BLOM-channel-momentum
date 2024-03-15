@@ -11,10 +11,10 @@ datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 case = "BLOM_channel_new05_mix1"
 #case = "BLOM_channel_new02_mix1"
 
-method = "from_vel"
-#method = "from_flux"
+#method = "from_vel"
+method = "from_flux"
 
-outpath = f"/nird/home/annals/BLOM_analysis/data/{case}/{method}/"
+outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/{method}/"
 Path(outpath).mkdir(parents=True, exist_ok=True)
 
 #client = Client(n_workers=2, threads_per_worker=2, memory_limit='1GB')
@@ -46,6 +46,8 @@ pds = xr.Dataset()
 
 dzx = f.center2xface(ds.dz)
 dzy = f.center2yface(ds.dz)
+ds["dzx"] = dzx
+ds["dzy"] = dzy
 
 if method == "from_vel":
     u = ds.uvel
@@ -69,8 +71,7 @@ ds["u"] = u.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk}
 ds["v"] = v.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 ds["uc"] = uc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 ds["vc"] = vc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-ds["dzx"] = dzx
-ds["dzy"] = dzy
+
 
 
 # time derivative of depth integrated zonal velocity
