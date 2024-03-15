@@ -96,11 +96,11 @@ pds["tauxb2"] = f.tauxb(ds, method="center last")
 pds["ubar"] = f.ubar(ds)
 
 # set values to coordinates. 
-f.add_coordinate_values(pds)
+f.add_coordinate_values(pds, dx, dy)
 
 # save bottom bathymetry
 bath = -f.total_depth(ds)
-f.add_coordinate_values(bath)
+f.add_coordinate_values(bath, dx, dy)
 bath.to_netcdf(outpath+case+"_bathymetry.nc")
 
 # zonal mean
@@ -110,7 +110,7 @@ results.attrs = {"Naming convention" : "tailing 1: calculations done on grid fac
 
 
 ntime = len(results.time)
-n = 15
+n = 30
 nmonths = ntime//n
 for t in np.arange(nmonths):
     result = results.isel(time=slice(t*n,(t+1)*n))
