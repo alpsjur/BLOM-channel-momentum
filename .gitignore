@@ -60,6 +60,7 @@ figures/*
 *.nc
 *.html
 *.pdf
+*.png
 
 #misc
 *nohup.out
