@@ -61,6 +61,7 @@ figures/*
 *.html
 *.pdf
 *.png
+*.mp4
 
 #misc
 *nohup.out
