@@ -8,11 +8,13 @@ import functions as f
 datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
 #case = "BLOM_channel_new05_mix1_taupos5"
-case = "BLOM_channel_new05_mix1"
-#case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new05_mix1"
+case = "BLOM_channel_new02_mix1"
 
-#method = "from_vel"
-method = "from_flux"
+method = "from_vel"
+#method = "from_flux"
+
+save_bath = False
 
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/{method}/"
 Path(outpath).mkdir(parents=True, exist_ok=True)
@@ -40,6 +42,7 @@ ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc",
                        chunks = {"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk},
                        data_vars = data_vars,
                       )
+
 
 # empty data set for storing processed data
 pds = xr.Dataset()
@@ -99,10 +102,12 @@ pds["ubar"] = f.ubar(ds)
 # set values to coordinates. 
 f.add_coordinate_values(pds, dx, dy)
 
-# save bottom bathymetry
-bath = -f.total_depth(ds)
-f.add_coordinate_values(bath, dx, dy)
-bath.to_netcdf(outpath+case+"_bathymetry.nc")
+if save_bath:
+    # save bottom bathymetry
+    bath = -f.total_depth(ds)
+    f.add_coordinate_values(bath, dx, dy)
+    bath.to_netcdf(outpath+case+"_bathymetry.nc")
+
 
 # zonal mean
 results = pds.mean("x")#.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
