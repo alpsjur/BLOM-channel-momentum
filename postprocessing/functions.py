@@ -58,7 +58,7 @@ def pad_reentrance(var):
 # dette forstår jeg ikke helt. Hva gjør np.where i dette tilfellet? Hvorfor gir den en liste med 34 arrays, der vi bare bruker første?
 def _bottom_value(u,dz):
     bi=np.where(dz>1)[0]
-    if len(bi>0):
+    if len(bi)>0:
         return u[bi[-1]]
     else:
         return np.nan
