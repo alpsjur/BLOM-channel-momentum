@@ -6,13 +6,14 @@ import seaborn as sns
 import pandas as pd
 import matplotlib as mpl
 from matplotlib.colors import LinearSegmentedColormap, ListedColormap
-from functions import find_slopeloc
+from plotting_functions import find_slopeloc
 
 # Constants
 rho = 1e3  # Density of water (kg/m^3)
 
 # Select the case study
-case = "BLOM_channel_new05_mix1"
+#case = "BLOM_channel_new05_mix1"
+case = "BLOM_channel_new05_mix1_taupos5"
 #case = "BLOM_channel_new02_mix1"
 
 # Define data and figure paths
@@ -20,27 +21,26 @@ datapath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 figurepath = f"/nird/home/annals/BLOM-channel-momentum/figures/"
 
 # Load datasets: mean over time
-ds_flux = xr.open_mfdataset(datapath+f"from_flux/{case}_from_flux_momentumterms_*.nc").mean("time")
-ds_vel = xr.open_mfdataset(datapath+f"from_vel/{case}_from_vel_momentumterms_*.nc").mean("time")
+ds = xr.open_mfdataset(datapath+f"{case}_momentumterms_*.nc").mean("time")
 
 # Load bathymetry and calculate mean depth
 bath = xr.open_dataarray(datapath+f"{case}_bathymetry.nc")#.isel(y=slice(1,-1))
-ds_vel["h"] = bath.mean(dim="x")
+ds["h"] = bath.mean(dim="x")
 
 # Seaborn theme for plotting
 sns.set_theme()
 
 # Initialize the plot
 fig, ax = plt.subplots(figsize=(12,8))
-y = ds_vel.y/1e3 # Convert y coordinates to km
+y = ds.y/1e3 # Convert y coordinates to km
 
 # Calculate various momentum terms
-surface_forcing = [-0.05/rho]*len(y.values) 
-MFD = -ds_vel.dUVdy             # Momentum advection divergence
-TFS = -ds_vel.phidhdx           # Topographic form stress
-dUdt = ds_flux.dUdt2            # Rate of change of velocity
-fV = ds_flux.fV1                # Coriolis acceleration term
-bottom_drag = -ds_flux.tauxb1   # Bottom drag
+surface_forcing = ds.tauxs 
+MFD = -ds.dUVdy             # Momentum advection divergence
+TFS = -ds.phidhdx           # Topographic form stress
+dUdt = ds.dUdt            # Rate of change of velocity
+fV = ds.fV_flx                # Coriolis acceleration term
+bottom_drag = -ds.tauxb_1   # Bottom drag
 res = -dUdt+MFD+TFS+fV+bottom_drag+surface_forcing   # Residual term
 
 
@@ -72,8 +72,8 @@ for var, label, color in zip(vars, labels, colors):
     maxx = np.max([maxx, np.abs(var).max()])
     
 # Scale and plot the mean velocity profile
-scale = maxx/np.max(np.abs(ds_vel.ubar))
-ax.plot(y, ds_vel.ubar*scale, 
+scale = maxx/np.max(np.abs(ds.ubar))
+ax.plot(y, ds.ubar*scale, 
          color="gray", 
          alpha=0.5,
          lw = 3,
@@ -83,7 +83,7 @@ ax.plot(y, ds_vel.ubar*scale,
          )    
 
 # Highlight the slope regions
-lx0, lx1, rx0, rx1 = find_slopeloc(ds_vel.h, epsilon=0.01)
+lx0, lx1, rx0, rx1 = find_slopeloc(ds.h, epsilon=0.01)
 ax.axvspan(lx0/1e3, lx1/1e3, alpha=0.2, color="gray", label="slope")
 ax.axvspan(rx0/1e3, rx1/1e3, alpha=0.2, color="gray")
 

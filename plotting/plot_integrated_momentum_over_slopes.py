@@ -1,16 +1,16 @@
-from functions import find_slopeidx, hanning_filter
+from plotting_functions import find_slopeidx, hanning_filter
 import xarray as xr
 import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 #case = "BLOM_channel_new05_mix1"
-case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new02_mix1"
+case = "BLOM_channel_new05_mix1_taupos5"
 
 datapath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 
-#ds_flux = xr.open_mfdataset(datapath+f"from_flux/{case}_from_flux_momentumterms_*.nc")
-ds = xr.open_mfdataset(datapath+f"from_vel/{case}_from_vel_momentumterms_*.nc")
+ds = xr.open_mfdataset(datapath+f"/{case}_momentumterms_*.nc")
 
 figurepath = f"/nird/home/annals/BLOM-channel-momentum/figures/"
 
@@ -32,11 +32,12 @@ dsi_east = ds_east.mean("y")
 
 time = dsi_west.time
 
-varname = "phidhdx"
+varname = "ubar"
 
 west = hanning_filter(dsi_west[varname], window_length=180)
 east = hanning_filter(dsi_east[varname], window_length=180)
 
+sns.set_theme()
 fig, ax = plt.subplots()
 ax.plot(west, label=f"{varname} west")
 ax.plot(east, label=f"{varname} east")
