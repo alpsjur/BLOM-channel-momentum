@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 import cmocean
 
-case = "BLOM_channel_new05_mix1_taupos5"
-#case = "BLOM_channel_new05_mix1_tauneg10"
+#case = "BLOM_channel_new05_mix1_taupos5"
+case = "BLOM_channel_new05_mix1_tauneg10"
 #case = "BLOM_channel_new05_mix1"
 
 datapath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"

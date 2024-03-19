@@ -14,7 +14,7 @@ ds = xr.open_mfdataset(datapath+f"/{case}_momentumterms_*.nc")
 
 figurepath = f"/nird/home/annals/BLOM-channel-momentum/figures/"
 
-#ds = xr.open_mfdataset(datapath+f"{case}_momentumterms_*.nc")#.isel(y=slice(1,-1))
+
 bath = xr.open_dataarray(datapath+f"{case}_bathymetry.nc")#.isel(y=slice(1,-1))
 
 
@@ -26,23 +26,50 @@ ds_west = ds.isel(y=slice(lx0,lx1))
 ds_east = ds.isel(y=slice(rx0,rx1))
 
 
-dsi_west = ds_west.mean("y")
-dsi_east = ds_east.mean("y")
+dsm_west = ds_west.mean("y")
+dsm_east = ds_east.mean("y")
+
+dsstd_west = ds_west.std("y")
+dsstd_east = ds_east.std("y")
 
 
-time = dsi_west.time
-
-varname = "ubar"
-
-west = hanning_filter(dsi_west[varname], window_length=180)
-east = hanning_filter(dsi_east[varname], window_length=180)
+time = dsm_west.time
+window = 180
 
 sns.set_theme()
-fig, ax = plt.subplots()
-ax.plot(west, label=f"{varname} west")
-ax.plot(east, label=f"{varname} east")
+fig, [axw, axe] = plt.subplots(2,1)
 
-ax.legend()
+vars = ["dUdt", "tauxs", "dUVdy", "phidhdx", "fV_flx", "tauxb_1"]
+signs = ["+", "+", "-", "-", "+", "-"]
+
+east_res = 0
+west_res = 0
+for varname, sign in zip(vars,signs):
+    east = dsm_east[varname]
+    west = dsm_west[varname]
+    if sign == "-":
+        east *= -1
+        west *= -1
+        
+    east_res = east_res + east
+    west_res = west_res + west
+
+    
+    east_filter = hanning_filter(east, window_length=window)
+    west_filter = hanning_filter(west, window_length=window)
+
+
+    axw.plot(west_filter, label=f"{sign}{varname}")
+    axe.plot(east_filter, label=f"{sign}{varname}")
+
+east_filter = hanning_filter(east_res, window_length=window)
+west_filter = hanning_filter(west_res, window_length=window)
+
+axw.plot(west_filter, label=f"residual")
+axe.plot(east_filter, label=f"residual")
+
+
+axw.legend()
 
 # Adjust layout and save the figure
 plt.tight_layout()
