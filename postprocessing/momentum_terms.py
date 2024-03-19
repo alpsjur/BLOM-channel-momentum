@@ -1,147 +1,90 @@
+# Import necessary libraries
 import xarray as xr
 import numpy as np
-from dask.distributed import Client
 from pathlib import Path
-import postprocessing_functions as f
+import postprocessing_functions as f  # Custom postprocessing functions
 
+# Define data paths and case names
 #datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
 datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
 #case = "BLOM_channel_new05_mix1_taupos5"
-case = "BLOM_channel_new05_mix1"
-#case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new05_mix1"
+case = "BLOM_channel_new02_mix1"
 
+# Option to save bathymetry data
 save_bath = False
 
+# Output path configuration
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
-Path(outpath).mkdir(parents=True, exist_ok=True)
+Path(outpath).mkdir(parents=True, exist_ok=True)  # Ensure output directory exists
 
-#client = Client(n_workers=2, threads_per_worker=2, memory_limit='1GB')
+# Physical and simulation parameters
+dx = 2e3  # Grid spacing in the x direction [m]
+dy = 2e3  # Grid spacing in the y direction [m]
+rho = 1e3  # Density of seawater [kg/m^3]
+f0 = 1e-4  # Coriolis parameter [s^-1]
+tauxs = 0.05/rho  # Normalized surface stress [N/m^2 / kg/m^3]
 
-dx = 2e3             # [m]
-dy = 2e3             # [m]
-rho = 1e3            # stemmer dette?
-f0 = 1e-4            # [s-1]
-tauxs = 0.05/rho
+# Chunk sizes for dask array operations (x, y, sigma, time)
+xchunk, ychunk, sigmachunk, timechunk = -1, -1, -1, 30
 
-#print(sorted(os.listdir(datapath+case+"/")))
-
-xchunk = -1
-ychunk = -1
-sigmachunk = -1
-timechunk = 30
-
+# Variables to be read from the dataset
 data_vars = ["uvel", "vvel", "dz", "pbot", "sealv", "ubaro", "uflx", "vflx"]
 
+# Reading daily data with specified chunks for efficient computation
+ds = xr.open_mfdataset(datapath + case + "/*hd_*.nc", chunks={"x": xchunk, "y": ychunk, "sigma": sigmachunk, "time": timechunk}, data_vars=data_vars)
 
-# read daily data 
-ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc", 
-                       #parallel=True,
-                       chunks = {"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk},
-                       data_vars = data_vars,
-                      )
+# Preparation for data processing
+# Initialize empty datasets for storing processed data
+pds, dsvel, dsflx = xr.Dataset(), xr.Dataset(), xr.Dataset()
 
+# Calculate dz on x and y faces
+dzx, dzy = f.center2xface(ds.dz), f.center2yface(ds.dz)
+ds["dzx"], ds["dzy"], dsvel["dz"], dsvel["dzx"], dsvel["dzy"], dsflx["dz"], dsflx["dzx"], dsflx["dzy"] = dzx, dzy, ds.dz, dzx, dzy, ds.dz, dzx, dzy
 
-# empty data sets for storing processed data
-pds = xr.Dataset()
-dsvel = xr.Dataset()
-dsflx = xr.Dataset()
+# Process velocities 
+uvel, vvel = ds.uvel, ds.vvel                                              # Velocities on z levels
+uflx, vflx = ds.uflx / (rho * dx * ds.dzx), ds.vflx / (rho * dy * ds.dzy)  # Compute velocities from mass fluxes
 
-dzx = f.center2xface(ds.dz)
-dzy = f.center2yface(ds.dz)
-ds["dzx"] = dzx
-ds["dzy"] = dzy
+# Convert face values to center values
+uvelc, vvelc = f.xface2center(uvel), f.yface2center(vvel)
+uflxc, vflxc = f.xface2center(uflx), f.yface2center(vflx)
 
-dsvel["dz"] = ds.dz
-dsvel["dzx"] = dzx
-dsvel["dzy"] = dzy
+# Store processed velocity data
+dsvel["u"], dsvel["v"], dsvel["uc"], dsvel["vc"] = [v.chunk({"x": xchunk, "y": ychunk, "sigma": sigmachunk, "time": timechunk}) for v in [uvel, vvel, uvelc, vvelc]]
+dsflx["u"], dsflx["v"], dsflx["uc"], dsflx["vc"] = [v.chunk({"x": xchunk, "y": ychunk, "sigma": sigmachunk, "time": timechunk}) for v in [uflx, vflx, uflxc, vflxc]]
 
-dsflx["dz"] = ds.dz
-dsflx["dzx"] = dzx
-dsflx["dzy"] = dzy
+# Calculate additional momentum terms
+pds["dUdt"] = f.dUdt(dsvel, method="center last")  # Time derivative of depth integrated zonal velocity
+pds["fV_flx"], pds["fV_vel"] = f.fV(dsflx, method="center last"), f.fV(dsvel, method="center last")  # Advection of planetary vorticity
+pds["phidhdx"] = f.phidhdx(ds, rho, dx)  # Topographic form stress term
+pds["dUVdy"] = f.dUVdy(dsvel, dy)  # Momentum flux divergence
 
+# Bottom drag calculations with two different alpha parameters
+pds["tauxb_1"], pds["tauxb_2"] = f.tauxb(dsvel, alpha=1, method="center first"), f.tauxb(dsvel, alpha=0.5, method="center first")
 
-uvel = ds.uvel
-vvel = ds.vvel
-
-u_flx = ds.uflx 
-Ax = dx*ds.dzx
-uflx = u_flx/(rho*Ax)
-    
-v_flx = ds.vflx 
-Ay = dy*ds.dzy
-vflx = v_flx/(rho*Ay)
-    
-
-uvelc = f.xface2center(uvel)
-vvelc = f.yface2center(vvel)
-
-uflxc = f.xface2center(uflx)
-vflxc = f.yface2center(vflx)
-
-
-# store values 
-dsvel["u"] = uvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsvel["v"] = vvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsvel["uc"] = uvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsvel["vc"] = vvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-
-dsflx["u"] = uflx.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["v"] = vflx.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["uc"] = uflxc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["vc"] = vflxc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-
-
-# time derivative of depth integrated zonal velocity
-pds["dUdt"] = f.dUdt(dsvel, method="center last")
-pds.dUdt.attrs = {"Method":"Calculated from uvel variable."}
-
-# advection of planetary vorticity
-pds["fV_flx"] = f.fV(dsflx, method="center last") 
-pds["fV_vel"] = f.fV(dsvel, method="center last") 
-pds.fV_flx.attrs = {"Method":"Calculated from vflx variable."}
-pds.fV_vel.attrs = {"Method":"Calculated from vvel variable."}
-
-# topographic form stress term
-pds["phidhdx"] = f.phidhdx(ds, rho, dx)
-
-# momentum flux divergence
-pds["dUVdy"] =  f.dUVdy(dsvel, dy)
-pds.dUVdy.attrs = {"Method":"Calculated from uvel and vvel variables."}
-
-# bottom drag
-#pds["tauxb1"] = f.tauxb(dsvel, method="center last")
-pds["tauxb_1"] = f.tauxb(dsvel, alpha=1, method="center first")
-pds["tauxb_2"] = f.tauxb(dsvel, alpha=0.5, method="center first")
-pds.tauxb_1.attrs = {"Method":"Calculated from uvel and vvel variables. Argument alpha=1. Centered first."}
-pds.tauxb_2.attrs = {"Method":"Calculated from uvel and vvel variables. Argument alpha=0.5. Centered first."}
-
-# add mean zonal velocity
+# Add mean zonal velocity
 pds["ubar"] = f.ubar(ds)
 
-# set values to coordinates. 
+# Add coordinate values for easier interpretation
 f.add_coordinate_values(pds, dx, dy)
 
+# Optional: Save bottom bathymetry data
 if save_bath:
-    # save bottom bathymetry
     bath = -f.total_depth(ds)
     f.add_coordinate_values(bath, dx, dy)
-    bath.to_netcdf(outpath+case+"_bathymetry.nc")
+    bath.to_netcdf(outpath + case + "_bathymetry.nc")
 
+# Calculate and save zonal mean of the processed data
+results = pds.mean("x")
+results["tauxs"] = (["time", "y"], np.ones_like(results.ubar)*tauxs)
+results.attrs = {"Naming convention": "tailing 1: calculations done on grid faces, then interpolated to grid center\n trailing 2: variables interpolated to grid center before calculations"}
 
-# zonal mean
-results = pds.mean("x")#.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-results["tauxs"] = np.array([tauxs]*len(results.y))
-
-results.attrs = {"Naming convention" : "tailing 1: calculations done on grid faces, then interpolated to grid center \ntailing 2: variables interpolated to grid center before calculations"}
-
-
-ntime = len(results.time)
-n = 30
-nmonths = ntime//n
+# Save monthly averaged data
+ntime, n = len(results.time), 30
+nmonths = ntime // n
 for t in np.arange(nmonths):
-    result = results.isel(time=slice(t*n,(t+1)*n))
+    result = results.isel(time=slice(t * n, (t + 1) * n))
     print(t)
-    result.to_netcdf(outpath+f"{case}_momentumterms_{t:03}.nc")
-
-#results.to_netcdf(outpath+case+"_momentumterms.nc")
+    result.to_netcdf(outpath + f"{case}_momentumterms_{t:03}.nc")
