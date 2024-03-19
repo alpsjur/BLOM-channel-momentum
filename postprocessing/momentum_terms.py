@@ -4,14 +4,14 @@ from dask.distributed import Client
 from pathlib import Path
 import postprocessing_functions as f
 
-#datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
-datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
+datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
+#datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
-#case = "BLOM_channel_new05_mix1_taupos5"
+case = "BLOM_channel_new05_mix1_taupos5"
 #case = "BLOM_channel_new05_mix1"
-case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new02_mix1"
 
-save_bath = False
+save_bath = True
 
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 Path(outpath).mkdir(parents=True, exist_ok=True)
@@ -34,7 +34,7 @@ data_vars = ["uvel", "vvel", "dz", "pbot", "sealv", "ubaro", "uflx", "vflx"]
 
 
 # read daily data 
-ds = xr.open_mfdataset(datapath+case+"/*hd_2019.12.nc", 
+ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc", 
                        #parallel=True,
                        chunks = {"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk},
                        data_vars = data_vars,
@@ -85,10 +85,10 @@ dsvel["v"] = vvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":time
 dsvel["uc"] = uvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 dsvel["vc"] = vvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 
-dsflx["u"] = uvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["v"] = vvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["uc"] = uvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-dsflx["vc"] = vvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["u"] = uflx.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["v"] = vflx.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["uc"] = uflxc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["vc"] = vflxc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 
 
 # time derivative of depth integrated zonal velocity
