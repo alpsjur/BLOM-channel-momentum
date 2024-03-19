@@ -93,11 +93,11 @@ def get_bottom_value(var, dz, zcoord="sigma"):
     
     return varb
 
-def _calculate_bottomdrag(ub, vb):
+def _calculate_bottomdrag(ub, vb, alpha):
     # bottom drag coefficintes
     cbar = 0.05                      # is RMS flow speed for linear bottom friction law in [m s-1].
     cb=0.002                         # is Coefficient of quadratic bottom friction [unitless].
-    ubbl = 0.5*np.sqrt(ub**2+vb**2)
+    ubbl = alpha*np.sqrt(ub**2+vb**2)
     q = cb*(ubbl+cbar)
     tauxb = ub*q
     return tauxb
@@ -155,22 +155,22 @@ def phidhdx(ds, rho=1e3, dx=2e3):
 def ubar(ds):
     return xface2center(ds.ubaro)
 
-def _tauxb_center_first(ds):
+def _tauxb_center_first(ds, alpha):
     ucb = get_bottom_value(ds.uc,ds.dz)
     vcb = get_bottom_value(ds.vc,ds.dz)
-    return _calculate_bottomdrag(ucb, vcb)
+    return _calculate_bottomdrag(ucb, vcb, alpha)
 
-def _tauxb_center_last(ds):
+def _tauxb_center_last(ds, alpha):
     ub = get_bottom_value(ds.u,ds.dzx)
     vb = get_bottom_value(ds.v,ds.dzy)
     ucb = xface2center(ub)
     vcb = yface2center(vb)
-    return _calculate_bottomdrag(ucb, vcb)
+    return _calculate_bottomdrag(ucb, vcb, alpha)
 
-def tauxb(ds, method="center first"):
+def tauxb(ds, alpha=1, method="center first"):
     if method == "center first":
-        return _tauxb_center_first(ds)
+        return _tauxb_center_first(ds, alpha)
     elif method == "center last":
-        return _tauxb_center_last(ds)
+        return _tauxb_center_last(ds, alpha)
     else:
         raise ValueError("Method must be either ""center first"" or ""center last""")

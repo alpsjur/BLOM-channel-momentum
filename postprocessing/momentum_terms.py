@@ -4,14 +4,14 @@ from dask.distributed import Client
 from pathlib import Path
 import postprocessing_functions as f
 
-datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
-#datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
+#datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
+datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
-case = "BLOM_channel_new05_mix1_taupos5"
-#case = "BLOM_channel_new05_mix1"
+#case = "BLOM_channel_new05_mix1_taupos5"
+case = "BLOM_channel_new05_mix1"
 #case = "BLOM_channel_new02_mix1"
 
-save_bath = True
+save_bath = False
 
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 Path(outpath).mkdir(parents=True, exist_ok=True)
@@ -22,6 +22,7 @@ dx = 2e3             # [m]
 dy = 2e3             # [m]
 rho = 1e3            # stemmer dette?
 f0 = 1e-4            # [s-1]
+tauxs = 0.05/rho
 
 #print(sorted(os.listdir(datapath+case+"/")))
 
@@ -109,10 +110,11 @@ pds["dUVdy"] =  f.dUVdy(dsvel, dy)
 pds.dUVdy.attrs = {"Method":"Calculated from uvel and vvel variables."}
 
 # bottom drag
-pds["tauxb1"] = f.tauxb(dsvel, method="center last")
-pds["tauxb2"] = f.tauxb(dsvel, method="center first")
-pds.tauxb1.attrs = {"Method":"Calculated from uvel and vvel variables. Centered last."}
-pds.tauxb1.attrs = {"Method":"Calculated from uvel and vvel variables. Centered first."}
+#pds["tauxb1"] = f.tauxb(dsvel, method="center last")
+pds["tauxb_1"] = f.tauxb(dsvel, alpha=1, method="center first")
+pds["tauxb_2"] = f.tauxb(dsvel, alpha=0.5, method="center first")
+pds.tauxb_1.attrs = {"Method":"Calculated from uvel and vvel variables. Argument alpha=1. Centered first."}
+pds.tauxb_2.attrs = {"Method":"Calculated from uvel and vvel variables. Argument alpha=0.5. Centered first."}
 
 # add mean zonal velocity
 pds["ubar"] = f.ubar(ds)
@@ -129,6 +131,7 @@ if save_bath:
 
 # zonal mean
 results = pds.mean("x")#.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+results["tauxs"] = np.array([tauxs]*len(results.y))
 
 results.attrs = {"Naming convention" : "tailing 1: calculations done on grid faces, then interpolated to grid center \ntailing 2: variables interpolated to grid center before calculations"}
 
