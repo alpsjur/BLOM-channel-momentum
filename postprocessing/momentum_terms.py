@@ -2,7 +2,7 @@ import xarray as xr
 import numpy as np
 from dask.distributed import Client
 from pathlib import Path
-import functions as f
+import postprocessing_functions as f
 
 #datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
 datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
@@ -11,12 +11,9 @@ datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 #case = "BLOM_channel_new05_mix1"
 case = "BLOM_channel_new02_mix1"
 
-method = "from_vel"
-#method = "from_flux"
-
 save_bath = False
 
-outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/{method}/"
+outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 Path(outpath).mkdir(parents=True, exist_ok=True)
 
 #client = Client(n_workers=2, threads_per_worker=2, memory_limit='1GB')
@@ -37,64 +34,85 @@ data_vars = ["uvel", "vvel", "dz", "pbot", "sealv", "ubaro", "uflx", "vflx"]
 
 
 # read daily data 
-ds = xr.open_mfdataset(datapath+case+"/*hd_*.nc", 
+ds = xr.open_mfdataset(datapath+case+"/*hd_2019.12.nc", 
                        #parallel=True,
                        chunks = {"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk},
                        data_vars = data_vars,
                       )
 
 
-# empty data set for storing processed data
+# empty data sets for storing processed data
 pds = xr.Dataset()
+dsvel = xr.Dataset()
+dsflx = xr.Dataset()
 
 dzx = f.center2xface(ds.dz)
 dzy = f.center2yface(ds.dz)
 ds["dzx"] = dzx
 ds["dzy"] = dzy
 
-if method == "from_vel":
-    u = ds.uvel
-    v = ds.vvel
-elif method == "from_flux":
-    uflx = ds.uflx 
-    Ax = dx*ds.dzx
-    u = uflx/(rho*Ax)
+dsvel["dz"] = ds.dz
+dsvel["dzx"] = dzx
+dsvel["dzy"] = dzy
+
+dsflx["dz"] = ds.dz
+dsflx["dzx"] = dzx
+dsflx["dzy"] = dzy
+
+
+uvel = ds.uvel
+vvel = ds.vvel
+
+u_flx = ds.uflx 
+Ax = dx*ds.dzx
+uflx = u_flx/(rho*Ax)
     
-    vflx = ds.vflx 
-    Ay = dy*ds.dzy
-    v = vflx/(rho*Ay)
+v_flx = ds.vflx 
+Ay = dy*ds.dzy
+vflx = v_flx/(rho*Ay)
     
 
-uc = f.xface2center(u)
-vc = f.yface2center(v)
+uvelc = f.xface2center(uvel)
+vvelc = f.yface2center(vvel)
+
+uflxc = f.xface2center(uflx)
+vflxc = f.yface2center(vflx)
 
 
 # store values 
-ds["u"] = u.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-ds["v"] = v.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-ds["uc"] = uc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
-ds["vc"] = vc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsvel["u"] = uvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsvel["v"] = vvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsvel["uc"] = uvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsvel["vc"] = vvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 
+dsflx["u"] = uvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["v"] = vvel.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["uc"] = uvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
+dsflx["vc"] = vvelc.chunk({"x":xchunk, "y":ychunk, "sigma":sigmachunk, "time":timechunk})
 
 
 # time derivative of depth integrated zonal velocity
-pds["dUdt1"] = f.dUdt(ds, method="center last")
-pds["dUdt2"] = f.dUdt(ds, method="center first")
-
+pds["dUdt"] = f.dUdt(dsvel, method="center last")
+pds.dUdt.attrs = {"Method":"Calculated from uvel variable."}
 
 # advection of planetary vorticity
-pds["fV1"] = f.fV(ds, method="center last") 
-pds["fV2"] = f.fV(ds, method="center first") 
+pds["fV_flx"] = f.fV(dsflx, method="center last") 
+pds["fV_vel"] = f.fV(dsvel, method="center last") 
+pds.fV_flx.attrs = {"Method":"Calculated from vflx variable."}
+pds.fV_vel.attrs = {"Method":"Calculated from vvel variable."}
 
 # topographic form stress term
 pds["phidhdx"] = f.phidhdx(ds, rho, dx)
 
 # momentum flux divergence
-pds["dUVdy"] =  f.dUVdy(ds, dy)
+pds["dUVdy"] =  f.dUVdy(dsvel, dy)
+pds.dUVdy.attrs = {"Method":"Calculated from uvel and vvel variables."}
 
 # bottom drag
-pds["tauxb1"] = f.tauxb(ds, method="center last")
-pds["tauxb2"] = f.tauxb(ds, method="center last")
+pds["tauxb1"] = f.tauxb(dsvel, method="center last")
+pds["tauxb2"] = f.tauxb(dsvel, method="center first")
+pds.tauxb1.attrs = {"Method":"Calculated from uvel and vvel variables. Centered last."}
+pds.tauxb1.attrs = {"Method":"Calculated from uvel and vvel variables. Centered first."}
 
 # add mean zonal velocity
 pds["ubar"] = f.ubar(ds)
@@ -121,6 +139,6 @@ nmonths = ntime//n
 for t in np.arange(nmonths):
     result = results.isel(time=slice(t*n,(t+1)*n))
     print(t)
-    result.to_netcdf(outpath+f"{case}_{method}_momentumterms_{t:03}.nc")
+    result.to_netcdf(outpath+f"{case}_momentumterms_{t:03}.nc")
 
 #results.to_netcdf(outpath+case+"_momentumterms.nc")

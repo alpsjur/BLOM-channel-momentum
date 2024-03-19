@@ -55,7 +55,6 @@ def pad_reentrance(var):
     return xr.concat([var.isel(x=-1), var, var.isel(x=0)], dim="x")
 
 # from ubbl.py
-# dette forstår jeg ikke helt. Hva gjør np.where i dette tilfellet? Hvorfor gir den en liste med 34 arrays, der vi bare bruker første?
 def _bottom_value(u,dz):
     bi=np.where(dz>1)[0]
     if len(bi)>0:
@@ -96,9 +95,10 @@ def get_bottom_value(var, dz, zcoord="sigma"):
 
 def _calculate_bottomdrag(ub, vb):
     # bottom drag coefficintes
-    cbar = 0.05 # is RMS flow speed for linear bottom friction law in [m s-1].
-    cb=0.002  # is Coefficient of quadratic bottom friction [unitless].
-    q = cb*(np.sqrt(ub**2+vb**2)+cbar)
+    cbar = 0.05                      # is RMS flow speed for linear bottom friction law in [m s-1].
+    cb=0.002                         # is Coefficient of quadratic bottom friction [unitless].
+    ubbl = 0.5*np.sqrt(ub**2+vb**2)
+    q = cb*(ubbl+cbar)
     tauxb = ub*q
     return tauxb
 
