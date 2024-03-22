@@ -13,15 +13,16 @@ rho = 1e3  # Density of water (kg/m^3)
 
 # Select the case study
 #case = "BLOM_channel_new05_mix1"
-case = "BLOM_channel_new05_mix1_taupos5"
-#case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new05_mix1_taupos5"
+case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new02_mix1_taupos5"
 
 # Define data and figure paths
 datapath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 figurepath = f"/nird/home/annals/BLOM-channel-momentum/figures/"
 
 # Load datasets: mean over time
-ds = xr.open_mfdataset(datapath+f"{case}_momentumterms_*.nc").mean("time")
+ds = xr.open_mfdataset(datapath+f"{case}_momentumterms.nc").mean("time")
 
 # Load bathymetry and calculate mean depth
 bath = xr.open_dataarray(datapath+f"{case}_bathymetry.nc")#.isel(y=slice(1,-1))
@@ -101,4 +102,4 @@ ax.set_title(eq+"\n", fontsize=18)
 
 # Adjust layout and save the figure
 plt.tight_layout()
-fig.savefig(figurepath+f"{case}_timemean_momentum_terms.png")
+fig.savefig(figurepath+f"timemean_momentum_terms/{case}_timemean_momentum_terms.png")

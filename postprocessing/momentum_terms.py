@@ -5,15 +5,16 @@ from pathlib import Path
 import postprocessing_functions as f  # Custom postprocessing functions
 
 # Define data paths and case names
-#datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
-datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
+datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
+#datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
 #case = "BLOM_channel_new05_mix1_taupos5"
 #case = "BLOM_channel_new05_mix1"
-case = "BLOM_channel_new02_mix1"
+case = "BLOM_channel_new02_mix1_taupos5"
+#case = "BLOM_channel_new02_mix1"
 
 # Option to save bathymetry data
-save_bath = False
+save_bath = True
 
 # Output path configuration
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
@@ -81,7 +82,7 @@ results = pds.mean("x")
 results["tauxs"] = (["time", "y"], np.ones_like(results.ubar)*tauxs)
 results.attrs = {"Naming convention": "tailing 1: calculations done on grid faces, then interpolated to grid center\n trailing 2: variables interpolated to grid center before calculations"}
 
-# Save monthly averaged data
+# Save monthly data
 ntime, n = len(results.time), 30
 nmonths = ntime // n
 for t in np.arange(nmonths):

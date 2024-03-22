@@ -5,8 +5,9 @@ from matplotlib.animation import FuncAnimation
 import cmocean
 
 #case = "BLOM_channel_new05_mix1_taupos5"
-case = "BLOM_channel_new05_mix1_tauneg10"
+#case = "BLOM_channel_new05_mix1_tauneg10"
 #case = "BLOM_channel_new05_mix1"
+case = "BLOM_channel_new02_mix1"
 
 datapath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
 figurepath = f"/nird/home/annals/BLOM-channel-momentum/figures/"
@@ -54,10 +55,10 @@ def animate(i):
     return cax,
 
 # Create animation
-ani = FuncAnimation(fig, animate, frames=len(eta.time), interval=200, blit=False)
+ani = FuncAnimation(fig, animate, frames=len(eta.time), interval=100, blit=False)
 
 #plt.show()
-ani.save(figurepath+f'{case}_eta_animation.mp4', 
+ani.save(figurepath+f'eta/{case}_eta_animation.mp4', 
          writer='ffmpeg'
          )
 

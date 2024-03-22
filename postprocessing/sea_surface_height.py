@@ -5,15 +5,16 @@ from dask.distributed import Client  # For parallel computing
 from pathlib import Path  # For filesystem path operations
 
 # Define the path to the input data. Uncomment the path that you need.
-datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
-#datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
+#datapath = "/projects/NS9869K/noresm/cases/BLOM_channel/"
+datapath = "/projects/NS9252K/noresm/cases/BLOM_channel/"
 
 # Define the case study. Uncomment the case that you're working with.
 #case = "BLOM_channel_new05_mix1"
 #case = "BLOM_channel_new05_mix1_taupos5"
 #case = "BLOM_channel_new05_mix1_tauneg10"
-#case = "BLOM_channel_new02_mix1"
-case = "BLOM_channel_new02_mix1_tauneg10"
+case = "BLOM_channel_new02_mix1"
+#case = "BLOM_channel_new02_mix1_taupos5"
+#case = "BLOM_channel_new02_mix1_tauneg10"
 
 # Define the output path where the processed data will be saved
 outpath = f"/nird/home/annals/BLOM-channel-momentum/data/{case}/"
@@ -41,4 +42,4 @@ da = ds.sealv
 
 # Save the extracted data to a NetCDF file in the specified output path.
 # The filename includes the case name for easy identification.
-da.to_netcdf(outpath + case + "_eta.nc")
+da.to_netcdf(f"{outpath}{case}_eta.nc")
